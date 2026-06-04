@@ -123,6 +123,22 @@
   /* Toast */
   .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: #1A1A1A; color: white; padding: 8px 18px; border-radius: 20px; font-size: 13px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
   .toast.show { opacity: 1; }
+
+  /* Edit modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 300; display: none; align-items: flex-end; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--card); border-radius: 20px 20px 0 0; width: 100%; max-width: 430px; padding: 20px 16px 40px; }
+  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; text-align: center; }
+  .modal-cat-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+  .modal-field { margin-bottom: 10px; }
+  .modal-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .modal-input { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit; background: var(--bg); color: var(--text); outline: none; }
+  .modal-input:focus { border-color: var(--accent); }
+  .modal-btns { display: flex; gap: 8px; margin-top: 14px; }
+  .modal-save { flex: 2; padding: 13px; background: var(--accent); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .modal-cancel { flex: 1; padding: 13px; background: var(--bg); color: var(--muted); border: 1px solid var(--border); border-radius: 12px; font-size: 15px; font-family: inherit; cursor: pointer; }
+  .record { cursor: pointer; }
+  .record:active { opacity: 0.75; }
 </style>
 </head>
 <body>
@@ -191,6 +207,35 @@
       <button class="today-btn" onclick="resetToday()">今天</button>
     </div>
     <button class="add-btn" onclick="addRecord()">＋ 新增支出</button>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editOverlay" onclick="closeEdit(event)">
+  <div class="modal">
+    <div class="modal-title">編輯記錄</div>
+    <div class="modal-cat-tabs" id="editCatTabs">
+      <button class="cat-tab meal" data-cat="meal" onclick="editSelectCat('meal')"><span class="tab-emoji">🍱</span>餐費</button>
+      <button class="cat-tab drink" data-cat="drink" onclick="editSelectCat('drink')"><span class="tab-emoji">🧋</span>飲料費</button>
+      <button class="cat-tab leisure" data-cat="leisure" onclick="editSelectCat('leisure')"><span class="tab-emoji">🎮</span>休閒費</button>
+      <button class="cat-tab parking" data-cat="parking" onclick="editSelectCat('parking')"><span class="tab-emoji">🚗</span>停車費</button>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">金額</div>
+      <input class="modal-input" type="number" id="editAmt" inputmode="decimal" />
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">備註</div>
+      <input class="modal-input" type="text" id="editNote" placeholder="便當、珍奶、電影..." />
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">日期</div>
+      <input class="modal-input" type="date" id="editDate" />
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeEdit()">取消</button>
+      <button class="modal-save" onclick="saveEdit()">儲存</button>
+    </div>
   </div>
 </div>
 
@@ -310,6 +355,49 @@ async function loadFromSheet() {
 
 function deleteRecord(id) { records = records.filter(r => r.id !== id); save(); render(); toast('已刪除'); }
 
+let editId = null, editCat = 'meal';
+
+function openEdit(id) {
+  const r = records.find(r => r.id === id);
+  if (!r) return;
+  editId = id;
+  editCat = r.cat;
+  document.getElementById('editAmt').value = r.amt;
+  document.getElementById('editNote').value = r.note || '';
+  const d = new Date(r.date);
+  document.getElementById('editDate').value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  document.querySelectorAll('#editCatTabs .cat-tab').forEach(el => el.classList.toggle('active', el.dataset.cat === editCat));
+  document.getElementById('editOverlay').classList.add('show');
+}
+
+function editSelectCat(cat) {
+  editCat = cat;
+  document.querySelectorAll('#editCatTabs .cat-tab').forEach(el => el.classList.toggle('active', el.dataset.cat === cat));
+}
+
+function closeEdit(e) {
+  if (e && e.target !== document.getElementById('editOverlay')) return;
+  document.getElementById('editOverlay').classList.remove('show');
+  editId = null;
+}
+
+function saveEdit() {
+  const amt = parseFloat(document.getElementById('editAmt').value);
+  if (!amt || amt <= 0) return;
+  const note = document.getElementById('editNote').value.trim();
+  const dateVal = document.getElementById('editDate').value;
+  const recDate = dateVal ? new Date(dateVal + 'T12:00:00') : new Date();
+  const idx = records.findIndex(r => r.id === editId);
+  if (idx !== -1) {
+    records[idx] = { ...records[idx], amt, note, cat: editCat, date: recDate.toISOString() };
+    records.sort((a,b) => new Date(b.date) - new Date(a.date));
+    save(); render();
+    toast('✓ 已更新');
+  }
+  document.getElementById('editOverlay').classList.remove('show');
+  editId = null;
+}
+
 function getMonthRecords() {
   return records.filter(r => { const d = new Date(r.date); return d.getFullYear()===viewYear && d.getMonth()===viewMonth; });
 }
@@ -380,14 +468,14 @@ function recordHTML(r) {
   const c = CATS[r.cat] || CATS.meal;
   const mainName = r.note ? r.note : c.name;
   const subMeta = r.note ? `${c.name} · ${fmtDate(r.date)}` : fmtDate(r.date);
-  return `<div class="record">
+  return `<div class="record" onclick="openEdit(${r.id})">
     <div class="record-dot" style="background:${c.bg}">${c.emoji}</div>
     <div class="record-info">
       <div class="record-name">${mainName}</div>
       <div class="record-meta">${subMeta}</div>
     </div>
     <div class="record-amt">${fmt(r.amt)}</div>
-    <button class="record-del" onclick="deleteRecord(${r.id})">✕</button>
+    <button class="record-del" onclick="event.stopPropagation();deleteRecord(${r.id})">✕</button>
   </div>`;
 }
 
