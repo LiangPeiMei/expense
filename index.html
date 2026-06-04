@@ -48,13 +48,19 @@
   .summary-amt { font-size: 30px; font-weight: 700; letter-spacing: -1px; }
   .summary-day { font-size: 12px; opacity: 0.75; margin-top: 2px; }
 
-  /* Cat stats */
+  /* Drink cups summary */
+  .cups-summary { margin: 0 16px 0; background: #EEF6FD; border-radius: var(--radius-sm); border: 1px solid #C5DFF4; padding: 12px 16px; display: flex; justify-content: space-around; align-items: center; }
+  .cups-stat { text-align: center; }
+  .cups-stat-label { font-size: 11px; color: #4A8BB5; margin-bottom: 3px; }
+  .cups-stat-val { font-size: 22px; font-weight: 700; color: #2A6A9A; }
+  .cups-stat-unit { font-size: 12px; color: #4A8BB5; margin-top: 1px; }
   .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 16px; }
   .cat-card { background: var(--card); border-radius: var(--radius-sm); padding: 10px 12px; border: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
   .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .cat-info { min-width: 0; }
   .cat-name { font-size: 11px; color: var(--muted); margin-bottom: 1px; }
   .cat-val { font-size: 14px; font-weight: 700; }
+  .cat-cups { font-size: 10px; color: #7CB9E8; margin-top: 2px; font-weight: 500; }
 
   /* Calendar */
   .calendar { margin: 0 16px 10px; background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
@@ -111,7 +117,11 @@
   .amt-input:focus { border-color: var(--accent); }
   .note-input { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text); outline: none; margin-bottom: 8px; }
   .note-input:focus { border-color: var(--accent); }
-  .date-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .cups-row { display: none; align-items: center; gap: 8px; margin-bottom: 8px; background: #EEF6FD; border-radius: 10px; padding: 8px 12px; }
+  .cups-row.show { display: flex; }
+  .cups-label { font-size: 12px; color: #4A8BB5; white-space: nowrap; }
+  .cups-input { width: 60px; border: 1.5px solid #7CB9E8; border-radius: 8px; padding: 6px 8px; font-size: 15px; font-weight: 700; font-family: inherit; background: white; color: var(--text); outline: none; text-align: center; }
+  .cups-hint { font-size: 11px; color: #7CB9E8; flex: 1; }
   .date-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
   .date-input { flex: 1; border: 1.5px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text); outline: none; }
   .date-input:focus { border-color: var(--accent); }
@@ -166,7 +176,20 @@
 
 <div id="listView">
   <div class="cat-grid" id="catGrid"></div>
-  <div class="section-head">明細記錄</div>
+  <div class="cups-summary" id="cupsSummary" style="display:none">
+    <div class="cups-stat">
+      <div class="cups-stat-label">🧋 本月我喝</div>
+      <div class="cups-stat-val" id="cupsMonth">0</div>
+      <div class="cups-stat-unit">杯</div>
+    </div>
+    <div style="width:1px;background:#C5DFF4;height:36px"></div>
+    <div class="cups-stat">
+      <div class="cups-stat-label">📅 今年累計</div>
+      <div class="cups-stat-val" id="cupsYear">0</div>
+      <div class="cups-stat-unit">杯</div>
+    </div>
+  </div>
+  <div class="section-head" style="margin-top:10px">明細記錄</div>
   <div class="records" id="recordList"></div>
 </div>
 
@@ -197,6 +220,11 @@
       <button class="cat-tab leisure" data-cat="leisure" onclick="selectCat('leisure')"><span class="tab-emoji">🎮</span>休閒費</button>
       <button class="cat-tab parking" data-cat="parking" onclick="selectCat('parking')"><span class="tab-emoji">🚗</span>停車費</button>
     </div>
+    <div class="cups-row" id="cupsRow">
+      <span class="cups-label">🧋 我喝幾杯</span>
+      <input class="cups-input" type="number" id="cupsInput" value="1" min="0" max="99" inputmode="numeric" />
+      <span class="cups-hint">（請客可填 0）</span>
+    </div>
     <div class="input-row">
       <input class="amt-input" type="number" id="amtInput" placeholder="金額" inputmode="decimal" min="0" />
     </div>
@@ -223,6 +251,10 @@
     <div class="modal-field">
       <div class="modal-label">金額</div>
       <input class="modal-input" type="number" id="editAmt" inputmode="decimal" />
+    </div>
+    <div class="modal-field" id="editCupsField" style="display:none">
+      <div class="modal-label">🧋 我喝幾杯</div>
+      <input class="modal-input" type="number" id="editCups" value="1" min="0" max="99" inputmode="numeric" />
     </div>
     <div class="modal-field">
       <div class="modal-label">備註</div>
@@ -303,7 +335,9 @@ function switchView(v) {
 
 function selectCat(cat) {
   selCat = cat;
-  document.querySelectorAll('.cat-tab').forEach(el => el.classList.toggle('active', el.dataset.cat === cat));
+  document.querySelectorAll('#addPanel .cat-tab').forEach(el => el.classList.toggle('active', el.dataset.cat === cat));
+  document.getElementById('cupsRow').classList.toggle('show', cat === 'drink');
+  if (cat === 'drink') document.getElementById('cupsInput').value = 1;
 }
 
 function selectDay(day) {
@@ -323,16 +357,18 @@ async function addRecord() {
   const note = document.getElementById('noteInput').value.trim();
   const dateVal = document.getElementById('dateInput').value;
   const recDate = dateVal ? new Date(dateVal + 'T12:00:00') : new Date();
-  const rec = { id: Date.now(), date: recDate.toISOString(), amt, cat: selCat, note };
+  const cups = selCat === 'drink' ? (parseInt(document.getElementById('cupsInput').value) || 0) : null;
+  const rec = { id: Date.now(), date: recDate.toISOString(), amt, cat: selCat, note, cups };
   records.unshift(rec);
   records.sort((a,b) => new Date(b.date) - new Date(a.date));
   save();
   document.getElementById('amtInput').value = '';
   document.getElementById('noteInput').value = '';
+  document.getElementById('cupsInput').value = 1;
   render();
   try {
     await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ date: recDate.toLocaleString('zh-TW'), amt, cat: CATS[selCat].name, note }) });
+      body: JSON.stringify({ date: recDate.toLocaleString('zh-TW'), amt, cat: CATS[selCat].name, note, cups: cups ?? '' }) });
     toast('✓ 已儲存到 Google Sheet');
   } catch(e) { toast('⚠ 離線，資料已存在本機'); }
 }
@@ -367,12 +403,17 @@ function openEdit(id) {
   const d = new Date(r.date);
   document.getElementById('editDate').value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   document.querySelectorAll('#editCatTabs .cat-tab').forEach(el => el.classList.toggle('active', el.dataset.cat === editCat));
+  const isDrink = r.cat === 'drink';
+  document.getElementById('editCupsField').style.display = isDrink ? '' : 'none';
+  if (isDrink) document.getElementById('editCups').value = r.cups ?? 1;
   document.getElementById('editOverlay').classList.add('show');
 }
 
 function editSelectCat(cat) {
   editCat = cat;
   document.querySelectorAll('#editCatTabs .cat-tab').forEach(el => el.classList.toggle('active', el.dataset.cat === cat));
+  document.getElementById('editCupsField').style.display = cat === 'drink' ? '' : 'none';
+  if (cat === 'drink') document.getElementById('editCups').value = 1;
 }
 
 function closeEdit(e) {
@@ -387,9 +428,10 @@ function saveEdit() {
   const note = document.getElementById('editNote').value.trim();
   const dateVal = document.getElementById('editDate').value;
   const recDate = dateVal ? new Date(dateVal + 'T12:00:00') : new Date();
+  const cups = editCat === 'drink' ? (parseInt(document.getElementById('editCups').value) || 0) : null;
   const idx = records.findIndex(r => r.id === editId);
   if (idx !== -1) {
-    records[idx] = { ...records[idx], amt, note, cat: editCat, date: recDate.toISOString() };
+    records[idx] = { ...records[idx], amt, note, cat: editCat, date: recDate.toISOString(), cups };
     records.sort((a,b) => new Date(b.date) - new Date(a.date));
     save(); render();
     toast('✓ 已更新');
@@ -417,8 +459,23 @@ function renderList() {
 
   document.getElementById('catGrid').innerHTML = Object.entries(CATS).map(([key,c]) => {
     const sum = filtered.filter(r=>r.cat===key).reduce((s,r)=>s+r.amt,0);
-    return `<div class="cat-card"><div class="cat-dot" style="background:${c.color}"></div><div class="cat-info"><div class="cat-name">${c.emoji} ${c.name}</div><div class="cat-val">${fmt(sum)}</div></div></div>`;
+    const cupsTotal = key === 'drink' ? filtered.filter(r=>r.cat==='drink').reduce((s,r)=>s+(r.cups??0),0) : null;
+    const yearCupsInline = key === 'drink' ? records.filter(r=>r.cat==='drink' && new Date(r.date).getFullYear()===viewYear).reduce((s,r)=>s+(r.cups??0),0) : null;
+    const extra = cupsTotal !== null ? `<div class="cat-cups">本月 ${cupsTotal} 杯　今年 ${yearCupsInline} 杯 🧋</div>` : '';
+    return `<div class="cat-card"><div class="cat-dot" style="background:${c.color}"></div><div class="cat-info"><div class="cat-name">${c.emoji} ${c.name}</div><div class="cat-val">${fmt(sum)}</div>${extra}</div></div>`;
   }).join('');
+
+  // Cups summary
+  const monthCups = filtered.filter(r=>r.cat==='drink').reduce((s,r)=>s+(r.cups??0),0);
+  const yearCups = records.filter(r => {
+    const d = new Date(r.date);
+    return r.cat === 'drink' && d.getFullYear() === viewYear;
+  }).reduce((s,r)=>s+(r.cups??0),0);
+  const hasDrink = records.some(r=>r.cat==='drink');
+  const el = document.getElementById('cupsSummary');
+  el.style.display = hasDrink ? '' : 'none';
+  document.getElementById('cupsMonth').textContent = monthCups;
+  document.getElementById('cupsYear').textContent = yearCups;
 
   const list = document.getElementById('recordList');
   if (!filtered.length) { list.innerHTML = '<div class="empty">這個月還沒有記錄</div>'; return; }
@@ -467,7 +524,8 @@ function renderCalRecords() {
 function recordHTML(r) {
   const c = CATS[r.cat] || CATS.meal;
   const mainName = r.note ? r.note : c.name;
-  const subMeta = r.note ? `${c.name} · ${fmtDate(r.date)}` : fmtDate(r.date);
+  const cupsBadge = (r.cat === 'drink' && r.cups != null) ? ` · ${r.cups}杯` : '';
+  const subMeta = r.note ? `${c.name}${cupsBadge} · ${fmtDate(r.date)}` : `${fmtDate(r.date)}${cupsBadge}`;
   return `<div class="record" onclick="openEdit(${r.id})">
     <div class="record-dot" style="background:${c.bg}">${c.emoji}</div>
     <div class="record-info">
