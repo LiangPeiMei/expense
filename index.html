@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>記帳本</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F5F0;
+    --card: #FFFFFF;
+    --text: #1A1A1A;
+    --muted: #888;
+    --border: #E8E4DC;
+    --accent: #D85A30;
+    --accent-light: #FAECE7;
+    --meal: #E8A87C;
+    --drink: #7CB9E8;
+    --leisure: #8BC48A;
+    --parking: #B5A3D4;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; max-width: 430px; margin: 0 auto; }
+
+  /* Header */
+  .header { background: var(--card); padding: 16px 20px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; }
+  .month-nav { display: flex; align-items: center; gap: 12px; }
+  .nav-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 20px; padding: 4px 8px; border-radius: 8px; line-height: 1; }
+  .nav-btn:active { background: var(--bg); }
+  .month-title { font-size: 17px; font-weight: 700; min-width: 110px; text-align: center; }
+  .sync-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; font-size: 12px; color: var(--muted); cursor: pointer; font-family: inherit; }
+  .sync-btn:active { background: var(--bg); }
+
+  /* Summary */
+  .summary { margin: 16px; background: var(--accent); border-radius: var(--radius); padding: 20px; color: white; }
+  .summary-label { font-size: 12px; opacity: 0.8; margin-bottom: 6px; }
+  .summary-amt { font-size: 36px; font-weight: 700; letter-spacing: -1px; }
+
+  /* Cat stats */
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 16px 16px; }
+  .cat-card { background: var(--card); border-radius: var(--radius-sm); padding: 12px 14px; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .cat-info { min-width: 0; }
+  .cat-name { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .cat-val { font-size: 15px; font-weight: 700; }
+
+  /* Records */
+  .section-head { font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 20px 8px; letter-spacing: 0.5px; }
+  .records { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; padding-bottom: 200px; }
+  .record { background: var(--card); border-radius: var(--radius-sm); padding: 12px 14px; border: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .record-dot { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .record-info { flex: 1; min-width: 0; }
+  .record-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .record-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .record-amt { font-size: 15px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+  .record-del { background: none; border: none; cursor: pointer; color: #CCC; font-size: 16px; padding: 4px; flex-shrink: 0; }
+  .record-del:active { color: var(--accent); }
+  .empty { text-align: center; color: var(--muted); font-size: 14px; padding: 40px 0; }
+
+  /* Add panel */
+  .add-panel { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--card); border-top: 1px solid var(--border); padding: 14px 16px 24px; z-index: 200; }
+  .cat-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+  .cat-tab { border: 1.5px solid var(--border); border-radius: 10px; padding: 7px 4px; text-align: center; cursor: pointer; background: none; font-family: inherit; font-size: 11px; color: var(--muted); line-height: 1.4; transition: all 0.15s; }
+  .cat-tab .tab-emoji { font-size: 18px; display: block; margin-bottom: 2px; }
+  .cat-tab.active { color: var(--text); font-weight: 500; }
+  .cat-tab.active.meal   { border-color: var(--meal); background: #FDF4EE; }
+  .cat-tab.active.drink  { border-color: var(--drink); background: #EEF6FD; }
+  .cat-tab.active.leisure{ border-color: var(--leisure); background: #EEF8EE; }
+  .cat-tab.active.parking{ border-color: var(--parking); background: #F4F0FA; }
+  .input-row { display: flex; gap: 8px; }
+  .amt-input { flex: 1; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 18px; font-family: inherit; font-weight: 700; background: var(--bg); color: var(--text); outline: none; }
+  .amt-input:focus { border-color: var(--accent); }
+  .note-input { flex: 1.2; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text); outline: none; }
+  .note-input:focus { border-color: var(--accent); }
+  .add-btn { margin-top: 8px; width: 100%; padding: 13px; background: var(--accent); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; letter-spacing: 0.5px; }
+  .add-btn:active { opacity: 0.85; transform: scale(0.99); }
+
+  /* Toast */
+  .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: #1A1A1A; color: white; padding: 8px 18px; border-radius: 20px; font-size: 13px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  /* Loading */
+  .loading { text-align: center; color: var(--muted); font-size: 13px; padding: 30px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="month-nav">
+    <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+    <div class="month-title" id="monthTitle"></div>
+    <button class="nav-btn" onclick="changeMonth(1)">›</button>
+  </div>
+  <button class="sync-btn" onclick="loadFromSheet()">↻ 同步</button>
+</div>
+
+<div class="summary">
+  <div class="summary-label">本月總支出</div>
+  <div class="summary-amt" id="totalAmt">$0</div>
+</div>
+
+<div class="cat-grid" id="catGrid"></div>
+
+<div class="section-head">明細記錄</div>
+<div class="records" id="recordList"></div>
+
+<div class="add-panel">
+  <div class="cat-tabs" id="catTabs">
+    <button class="cat-tab meal active" data-cat="meal" onclick="selectCat('meal')"><span class="tab-emoji">🍱</span>餐費</button>
+    <button class="cat-tab drink" data-cat="drink" onclick="selectCat('drink')"><span class="tab-emoji">🧋</span>飲料費</button>
+    <button class="cat-tab leisure" data-cat="leisure" onclick="selectCat('leisure')"><span class="tab-emoji">🎮</span>休閒費</button>
+    <button class="cat-tab parking" data-cat="parking" onclick="selectCat('parking')"><span class="tab-emoji">🚗</span>停車費</button>
+  </div>
+  <div class="input-row">
+    <input class="amt-input" type="number" id="amtInput" placeholder="金額" inputmode="decimal" min="0" />
+    <input class="note-input" type="text" id="noteInput" placeholder="備註（選填）" />
+  </div>
+  <button class="add-btn" onclick="addRecord()">＋ 新增支出</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyR-rXCMF_ObzafhbfOaTI5ZfTlyQX8IQkcAbtDfQwKwoO1y07v6Xi1h7wlOqEi94ut/exec';
+
+const CATS = {
+  meal:    { name: '餐費',   emoji: '🍱', color: '#E8A87C', bg: '#FDF4EE' },
+  drink:   { name: '飲料費', emoji: '🧋', color: '#7CB9E8', bg: '#EEF6FD' },
+  leisure: { name: '休閒費', emoji: '🎮', color: '#8BC48A', bg: '#EEF8EE' },
+  parking: { name: '停車費', emoji: '🚗', color: '#B5A3D4', bg: '#F4F0FA' },
+};
+
+let records = [];
+let selCat = 'meal';
+let viewYear, viewMonth;
+
+const now = new Date();
+viewYear = now.getFullYear();
+viewMonth = now.getMonth();
+
+// Load from localStorage
+try {
+  const saved = localStorage.getItem('expense_v2');
+  if (saved) records = JSON.parse(saved);
+} catch(e) {}
+
+function save() {
+  try { localStorage.setItem('expense_v2', JSON.stringify(records)); } catch(e) {}
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function fmt(n) { return '$' + Math.round(n).toLocaleString('zh-TW'); }
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return (d.getMonth()+1) + '/' + d.getDate();
+}
+
+function changeMonth(delta) {
+  viewMonth += delta;
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  if (viewMonth < 0)  { viewMonth = 11; viewYear--; }
+  render();
+}
+
+function selectCat(cat) {
+  selCat = cat;
+  document.querySelectorAll('.cat-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.cat === cat);
+  });
+}
+
+async function addRecord() {
+  const amt = parseFloat(document.getElementById('amtInput').value);
+  if (!amt || amt <= 0) { document.getElementById('amtInput').focus(); return; }
+  const note = document.getElementById('noteInput').value.trim();
+  const dateStr = new Date().toISOString();
+
+  const rec = { id: Date.now(), date: dateStr, amt, cat: selCat, note };
+  records.unshift(rec);
+  save();
+  document.getElementById('amtInput').value = '';
+  document.getElementById('noteInput').value = '';
+  render();
+
+  // Send to Google Sheet
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: new Date().toLocaleString('zh-TW'), amt, cat: CATS[selCat].name, note })
+    });
+    toast('✓ 已儲存到 Google Sheet');
+  } catch(e) {
+    toast('⚠ 離線，資料已存在本機');
+  }
+}
+
+async function loadFromSheet() {
+  toast('同步中…');
+  try {
+    const res = await fetch(GAS_URL);
+    const rows = await res.json();
+    // rows[0] is header, skip it
+    const catMap = { '餐費':'meal', '飲料費':'drink', '休閒費':'leisure', '停車費':'parking' };
+    const loaded = [];
+    for (let i = 1; i < rows.length; i++) {
+      const [dateStr, amt, catName, note] = rows[i];
+      if (!amt) continue;
+      loaded.push({
+        id: i,
+        date: new Date(dateStr).toISOString(),
+        amt: parseFloat(amt),
+        cat: catMap[catName] || 'meal',
+        note: note || ''
+      });
+    }
+    records = loaded.reverse();
+    save();
+    render();
+    toast('✓ 同步完成');
+  } catch(e) {
+    toast('⚠ 同步失敗，請檢查網路');
+  }
+}
+
+function deleteRecord(id) {
+  records = records.filter(r => r.id !== id);
+  save();
+  render();
+  toast('已刪除');
+}
+
+function render() {
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  document.getElementById('monthTitle').textContent = viewYear + ' 年 ' + monthNames[viewMonth];
+
+  const filtered = records.filter(r => {
+    const d = new Date(r.date);
+    return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+  });
+
+  const total = filtered.reduce((s, r) => s + r.amt, 0);
+  document.getElementById('totalAmt').textContent = fmt(total);
+
+  // Cat grid
+  document.getElementById('catGrid').innerHTML = Object.entries(CATS).map(([key, c]) => {
+    const sum = filtered.filter(r => r.cat === key).reduce((s, r) => s + r.amt, 0);
+    return `<div class="cat-card">
+      <div class="cat-dot" style="background:${c.color}"></div>
+      <div class="cat-info">
+        <div class="cat-name">${c.emoji} ${c.name}</div>
+        <div class="cat-val">${fmt(sum)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Records
+  const list = document.getElementById('recordList');
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty">這個月還沒有記錄</div>';
+    return;
+  }
+  list.innerHTML = filtered.map(r => {
+    const c = CATS[r.cat] || CATS.meal;
+    return `<div class="record">
+      <div class="record-dot" style="background:${c.bg}">${c.emoji}</div>
+      <div class="record-info">
+        <div class="record-name">${r.note || c.name}</div>
+        <div class="record-meta">${c.name} · ${fmtDate(r.date)}</div>
+      </div>
+      <div class="record-amt">${fmt(r.amt)}</div>
+      <button class="record-del" onclick="deleteRecord(${r.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+render();
+</script>
+</body>
+</html>
